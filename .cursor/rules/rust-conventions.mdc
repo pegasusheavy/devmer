@@ -1,0 +1,122 @@
+---
+description: Rust coding conventions and best practices for Devmer
+globs: ["**/*.rs"]
+alwaysApply: true
+---
+
+# Rust Coding Conventions
+
+## General Style
+- Follow the official Rust style guide (rustfmt)
+- Use `cargo fmt` before committing
+- Use `cargo clippy` and address all warnings
+- Maximum line length: 100 characters
+
+## Imports
+- Group imports in this order, separated by blank lines:
+  1. Standard library (`std::`)
+  2. External crates
+  3. Internal crates (`devmer_*`)
+  4. Current crate modules (`crate::`, `super::`)
+- Prefer explicit imports over glob imports (`use module::*`)
+
+```rust
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
+
+use devmer_core::Resource;
+
+use crate::error::Result;
+```
+
+## Error Handling
+- Define crate-specific error types using `thiserror`
+- Use `anyhow` for application-level error handling in CLI
+- Always provide context with errors using `.context()` or `.with_context()`
+- Never use `.unwrap()` in library code; use `.expect()` only with clear messages
+
+```rust
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum StateError {
+    #[error("failed to read state from backend: {0}")]
+    ReadError(#[from] std::io::Error),
+    
+    #[error("state is locked by {holder} since {since}")]
+    Locked { holder: String, since: DateTime<Utc> },
+    
+    #[error("state version mismatch: expected {expected}, got {actual}")]
+    VersionMismatch { expected: u64, actual: u64 },
+}
+```
+
+## Async Patterns
+- Use `#[async_trait]` for async trait methods
+- Prefer `tokio::spawn` for concurrent tasks
+- Use `tokio::select!` for concurrent operations with cancellation
+- Always handle cancellation gracefully
+
+```rust
+#[async_trait]
+pub trait StateBackend: Send + Sync {
+    async fn get_state(&self, stack: &str) -> Result<Option<StackState>>;
+    async fn save_state(&self, stack: &str, state: &StackState) -> Result<()>;
+}
+```
+
+## Documentation
+- All public items must have doc comments
+- Use `///` for item documentation
+- Use `//!` for module-level documentation
+- Include examples in doc comments using ```` ```rust ````
+- Document panics, errors, and safety considerations
+
+```rust
+/// Creates a new S3 state backend.
+///
+/// # Arguments
+/// * `bucket` - The S3 bucket name for state storage
+/// * `region` - AWS region for the bucket
+///
+/// # Errors
+/// Returns `StateError::ConfigError` if the bucket doesn't exist.
+///
+/// # Example
+/// ```rust
+/// let backend = S3Backend::new("my-state-bucket", "us-east-1").await?;
+/// ```
+pub async fn new(bucket: &str, region: &str) -> Result<Self> {
+    // ...
+}
+```
+
+## Testing
+- Unit tests go in the same file using `#[cfg(test)]` module
+- Integration tests go in `tests/` directory
+- Use descriptive test names: `test_{function}_{scenario}_{expected_result}`
+- Use `#[tokio::test]` for async tests
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[tokio::test]
+    async fn test_save_state_creates_new_state_file() {
+        // Arrange
+        let backend = LocalBackend::new(temp_dir()).await.unwrap();
+        let state = StackState::default();
+        
+        // Act
+        backend.save_state("test-stack", &state).await.unwrap();
+        
+        // Assert
+        assert!(backend.get_state("test-stack").await.unwrap().is_some());
+    }
+}
+```

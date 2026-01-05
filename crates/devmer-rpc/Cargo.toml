@@ -1,0 +1,29 @@
+[package]
+name = "devmer-rpc"
+description = "gRPC protocol definitions and services for Devmer language hosts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+codegen = []  # Enable to regenerate proto code
+
+[dependencies]
+tonic.workspace = true
+prost.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+serde_json.workspace = true
+
+devmer-core.workspace = true
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }

@@ -1,0 +1,138 @@
+---
+description: Git workflow and commit conventions
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Git Workflow
+
+## Branch Naming
+
+- `main` - Production-ready code
+- `develop` - Integration branch
+- `feature/{ticket}-{description}` - New features
+- `fix/{ticket}-{description}` - Bug fixes
+- `refactor/{description}` - Code refactoring
+- `docs/{description}` - Documentation updates
+- `release/v{version}` - Release preparation
+
+## Commit Messages
+
+Follow Conventional Commits:
+
+```
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+- `feat` - New feature
+- `fix` - Bug fix
+- `docs` - Documentation
+- `style` - Formatting (no code change)
+- `refactor` - Code restructuring
+- `perf` - Performance improvement
+- `test` - Adding tests
+- `chore` - Maintenance tasks
+- `ci` - CI/CD changes
+
+### Scopes
+- `core` - devmer-core crate
+- `state` - devmer-state crate
+- `cli` - devmer-cli crate
+- `tui` - devmer-tui crate
+- `aws` - AWS provider
+- `gcp` - GCP provider
+- `azure` - Azure provider
+- `sdk` - SDK components
+- `config` - Configuration
+
+### Examples
+
+```
+feat(aws): add support for S3 bucket lifecycle rules
+
+Add ability to configure lifecycle rules for S3 buckets including
+transitions to different storage classes and expiration policies.
+
+Closes #123
+```
+
+```
+fix(state): handle concurrent state access race condition
+
+Use optimistic locking with version checking to prevent
+lost updates when multiple users access the same stack.
+
+Fixes #456
+```
+
+```
+refactor(core)!: rename ResourceInputs to ResourceArgs
+
+BREAKING CHANGE: All provider implementations need to update
+their type references from ResourceInputs to ResourceArgs.
+```
+
+## Pull Requests
+
+### PR Title Format
+Same as commit message: `<type>(<scope>): <description>`
+
+### PR Description Template
+
+```markdown
+## Summary
+Brief description of changes
+
+## Changes
+- Change 1
+- Change 2
+
+## Testing
+- [ ] Unit tests added/updated
+- [ ] Integration tests added/updated
+- [ ] Manual testing performed
+
+## Documentation
+- [ ] Code comments added
+- [ ] README updated (if applicable)
+- [ ] API docs updated (if applicable)
+
+## Breaking Changes
+None / List breaking changes
+
+## Related Issues
+Closes #123
+```
+
+## Pre-commit Checks
+
+Run before committing:
+
+```bash
+# Format code
+cargo fmt --all
+
+# Run clippy
+cargo clippy --all-targets --all-features -- -D warnings
+
+# Run tests
+cargo test
+
+# Check for secrets
+./scripts/check-secrets.sh
+```
+
+## Release Process
+
+1. Create release branch: `release/v1.2.0`
+2. Update version in all Cargo.toml files
+3. Update CHANGELOG.md
+4. Create PR to main
+5. After merge, tag: `git tag v1.2.0`
+6. Push tag: `git push origin v1.2.0`
+7. CI publishes crates and creates GitHub release

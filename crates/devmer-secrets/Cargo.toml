@@ -1,0 +1,43 @@
+[package]
+name = "devmer-secrets"
+description = "Secrets encryption and management for Devmer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+secrecy.workspace = true
+zeroize.workspace = true
+argon2.workspace = true
+aes-gcm.workspace = true
+rand.workspace = true
+chrono.workspace = true
+
+base64 = "0.22"
+
+[features]
+default = ["passphrase"]
+passphrase = []
+awskms = ["aws-sdk-kms"]
+vault = ["vaultrs"]
+
+[dependencies.aws-sdk-kms]
+version = "1.56"
+optional = true
+
+[dependencies.vaultrs]
+version = "0.7"
+optional = true
+
+[dev-dependencies]
+mockall.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

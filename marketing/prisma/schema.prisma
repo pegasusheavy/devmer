@@ -1,0 +1,448 @@
+// Prisma v7 Schema for Devmer Marketing Website
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../node_modules/.prisma/client"
+  previewFeatures = ["fullTextSearchPostgres"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// User Management
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?   @map("password_hash")
+  role          UserRole  @default(EDITOR)
+  avatar        String?
+  bio           String?
+  
+  // Relations
+  posts         BlogPost[]
+  sessions      Session[]
+  
+  // Timestamps
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+  
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  token        String   @unique
+  expiresAt    DateTime @map("expires_at")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ============================================================================
+// Lead Management
+// ============================================================================
+
+model Lead {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  firstName     String?     @map("first_name")
+  lastName      String?     @map("last_name")
+  company       String?
+  jobTitle      String?     @map("job_title")
+  phone         String?
+  website       String?
+  
+  // Lead scoring
+  score         Int         @default(0)
+  status        LeadStatus  @default(NEW)
+  source        String?     // e.g., "website", "conference", "referral"
+  campaign      String?     // Marketing campaign that generated this lead
+  
+  // Company info
+  companySize   String?     @map("company_size")
+  industry      String?
+  country       String?
+  
+  // Engagement
+  interests     String[]    // e.g., ["aws", "kubernetes", "terraform-migration"]
+  
+  // Relations
+  activities    LeadActivity[]
+  
+  // Timestamps
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  convertedAt   DateTime?   @map("converted_at")
+  
+  @@index([status])
+  @@index([source])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  CONVERTED
+  LOST
+}
+
+model LeadActivity {
+  id          String           @id @default(cuid())
+  leadId      String           @map("lead_id")
+  type        LeadActivityType
+  description String?
+  metadata    Json?
+  
+  // Relations
+  lead        Lead             @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime         @default(now()) @map("created_at")
+  
+  @@index([leadId])
+  @@index([type])
+  @@map("lead_activities")
+}
+
+enum LeadActivityType {
+  PAGE_VIEW
+  DOWNLOAD
+  FORM_SUBMIT
+  EMAIL_OPEN
+  EMAIL_CLICK
+  DEMO_REQUEST
+  PRICING_VIEW
+  DOCS_VIEW
+  GITHUB_STAR
+}
+
+// ============================================================================
+// Newsletter & Communications
+// ============================================================================
+
+model NewsletterSubscriber {
+  id              String              @id @default(cuid())
+  email           String              @unique
+  firstName       String?             @map("first_name")
+  status          SubscriptionStatus  @default(ACTIVE)
+  source          String?             // Where they subscribed from
+  
+  // Preferences
+  preferences     Json?               // { "productUpdates": true, "blog": true, "events": false }
+  
+  // Tracking
+  confirmedAt     DateTime?           @map("confirmed_at")
+  unsubscribedAt  DateTime?           @map("unsubscribed_at")
+  
+  // Timestamps
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  
+  @@index([status])
+  @@map("newsletter_subscribers")
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  UNSUBSCRIBED
+  BOUNCED
+}
+
+// ============================================================================
+// Contact Forms
+// ============================================================================
+
+model ContactSubmission {
+  id          String        @id @default(cuid())
+  email       String
+  name        String
+  company     String?
+  subject     String?
+  message     String
+  type        ContactType   @default(GENERAL)
+  status      ContactStatus @default(NEW)
+  
+  // Tracking
+  ipAddress   String?       @map("ip_address")
+  userAgent   String?       @map("user_agent")
+  referrer    String?
+  
+  // Response
+  respondedAt DateTime?     @map("responded_at")
+  respondedBy String?       @map("responded_by")
+  notes       String?
+  
+  // Timestamps
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("contact_submissions")
+}
+
+enum ContactType {
+  GENERAL
+  SALES
+  SUPPORT
+  PARTNERSHIP
+  PRESS
+  CAREERS
+}
+
+enum ContactStatus {
+  NEW
+  IN_PROGRESS
+  RESPONDED
+  CLOSED
+}
+
+// ============================================================================
+// Demo Requests
+// ============================================================================
+
+model DemoRequest {
+  id              String          @id @default(cuid())
+  email           String
+  firstName       String          @map("first_name")
+  lastName        String          @map("last_name")
+  company         String
+  jobTitle        String?         @map("job_title")
+  phone           String?
+  
+  // Demo details
+  preferredDate   DateTime?       @map("preferred_date")
+  timezone        String?
+  useCase         String?         @map("use_case")
+  currentTools    String[]        @map("current_tools") // ["terraform", "pulumi", "cloudformation"]
+  teamSize        String?         @map("team_size")
+  
+  // Status
+  status          DemoStatus      @default(PENDING)
+  scheduledAt     DateTime?       @map("scheduled_at")
+  completedAt     DateTime?       @map("completed_at")
+  
+  // Notes
+  notes           String?
+  feedback        String?
+  
+  // Timestamps
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  
+  @@index([status])
+  @@index([createdAt])
+  @@map("demo_requests")
+}
+
+enum DemoStatus {
+  PENDING
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============================================================================
+// Blog & Content
+// ============================================================================
+
+model BlogPost {
+  id            String        @id @default(cuid())
+  slug          String        @unique
+  title         String
+  excerpt       String?
+  content       String
+  coverImage    String?       @map("cover_image")
+  
+  // SEO
+  metaTitle     String?       @map("meta_title")
+  metaDescription String?     @map("meta_description")
+  
+  // Categorization
+  tags          String[]
+  category      String?
+  
+  // Author
+  authorId      String        @map("author_id")
+  author        User          @relation(fields: [authorId], references: [id])
+  
+  // Status
+  status        PostStatus    @default(DRAFT)
+  featured      Boolean       @default(false)
+  
+  // Timestamps
+  publishedAt   DateTime?     @map("published_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([authorId])
+  @@map("blog_posts")
+}
+
+enum PostStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+// ============================================================================
+// Waitlist & Early Access
+// ============================================================================
+
+model WaitlistEntry {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  company       String?
+  useCase       String?   @map("use_case")
+  referralCode  String?   @map("referral_code")
+  referredBy    String?   @map("referred_by")
+  
+  // Priority
+  priority      Int       @default(0)
+  invitedAt     DateTime? @map("invited_at")
+  
+  // Timestamps
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  @@index([priority])
+  @@index([createdAt])
+  @@map("waitlist_entries")
+}
+
+// ============================================================================
+// Analytics & Events
+// ============================================================================
+
+model PageView {
+  id          String    @id @default(cuid())
+  path        String
+  referrer    String?
+  userAgent   String?   @map("user_agent")
+  ipAddress   String?   @map("ip_address")
+  country     String?
+  city        String?
+  
+  // Session tracking
+  sessionId   String?   @map("session_id")
+  visitorId   String?   @map("visitor_id")
+  
+  // UTM parameters
+  utmSource   String?   @map("utm_source")
+  utmMedium   String?   @map("utm_medium")
+  utmCampaign String?   @map("utm_campaign")
+  utmTerm     String?   @map("utm_term")
+  utmContent  String?   @map("utm_content")
+  
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  @@index([path])
+  @@index([sessionId])
+  @@index([visitorId])
+  @@index([createdAt])
+  @@map("page_views")
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  name        String    // e.g., "button_click", "form_submit", "download"
+  category    String?   // e.g., "engagement", "conversion"
+  properties  Json?     // Additional event data
+  
+  // Session tracking
+  sessionId   String?   @map("session_id")
+  visitorId   String?   @map("visitor_id")
+  
+  // Context
+  path        String?
+  
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  
+  @@index([name])
+  @@index([category])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("events")
+}
+
+// ============================================================================
+// Feature Requests & Feedback
+// ============================================================================
+
+model FeatureRequest {
+  id          String              @id @default(cuid())
+  email       String
+  title       String
+  description String
+  category    String?             // e.g., "providers", "sdk", "state-management"
+  
+  // Voting
+  votes       Int                 @default(1)
+  
+  // Status
+  status      FeatureStatus       @default(SUBMITTED)
+  priority    FeaturePriority     @default(MEDIUM)
+  
+  // Internal
+  notes       String?
+  relatedUrl  String?             @map("related_url") // GitHub issue, etc.
+  
+  // Timestamps
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  
+  @@index([status])
+  @@index([category])
+  @@index([votes])
+  @@map("feature_requests")
+}
+
+enum FeatureStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  DECLINED
+}
+
+enum FeaturePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}

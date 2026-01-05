@@ -1,0 +1,29 @@
+[package]
+name = "devmer-core"
+description = "Core types, resource graph, and execution engine for Devmer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+petgraph.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+secrecy.workspace = true
+
+[dev-dependencies]
+mockall.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+criterion.workspace = true[[bench]]
+name = "core_bench"
+harness = false

@@ -1,0 +1,145 @@
+---
+description: Dependency injection patterns using dependency_injector crate
+globs: ["**/*.rs"]
+alwaysApply: true
+---
+
+# Dependency Injection Guidelines
+
+Devmer uses the `dependency_injector` crate (Armature DI) for dependency injection.
+
+## Core Principles
+
+1. **Program to Interfaces**: Always inject traits, not concrete types
+2. **Constructor Injection**: Use `#[inject]` attribute for dependencies
+3. **Single Responsibility**: Each service has one purpose
+4. **Composition Root**: Resolve dependencies only at app entry point
+
+## Service Interface Pattern
+
+```rust
+use async_trait::async_trait;
+
+/// Define service interface as a trait
+#[async_trait]
+pub trait MyService: Send + Sync {
+    async fn do_something(&self, input: &str) -> Result<Output>;
+}
+```
+
+## Injectable Implementation
+
+```rust
+use dependency_injector::{Injectable, Inject};
+
+#[derive(Injectable)]
+pub struct MyServiceImpl {
+    // Injected dependencies
+    #[inject]
+    config: Arc<dyn ConfigService>,
+    
+    #[inject]
+    other_service: Arc<dyn OtherService>,
+}
+
+#[async_trait]
+impl MyService for MyServiceImpl {
+    async fn do_something(&self, input: &str) -> Result<Output> {
+        let setting = self.config.get("my.setting")?;
+        self.other_service.process(input, &setting).await
+    }
+}
+```
+
+## Container Registration
+
+```rust
+use dependency_injector::Container;
+
+pub fn register_services(container: &mut Container) {
+    // Singleton - one instance shared
+    container.register_singleton::<dyn MyService, MyServiceImpl>();
+    
+    // Lazy singleton - created on first use
+    container.register_lazy_singleton::<dyn ExpensiveService, ExpensiveServiceImpl>();
+    
+    // Factory - new instance each time
+    container.register_factory::<dyn StateBackend, _>(|c| {
+        let config: Arc<dyn ConfigService> = c.resolve();
+        create_backend_from_config(&config)
+    });
+    
+    // Instance - pre-created instance
+    container.register_instance::<DevmerConfig>(config);
+}
+```
+
+## Resolving Dependencies
+
+```rust
+// At composition root only
+let service: Arc<dyn MyService> = container.resolve();
+
+// Never pass container around - inject specific dependencies instead
+```
+
+## Testing with Mocks
+
+```rust
+use mockall::automock;
+
+#[automock]
+#[async_trait]
+pub trait MyService: Send + Sync {
+    async fn do_something(&self, input: &str) -> Result<Output>;
+}
+
+#[tokio::test]
+async fn test_with_mock() {
+    let mut mock = MockMyService::new();
+    mock.expect_do_something()
+        .returning(|_| Ok(Output::default()));
+    
+    let container = TestContainerBuilder::new()
+        .with_mock::<dyn MyService>(mock)
+        .build();
+    
+    // Test...
+}
+```
+
+## Anti-Patterns to Avoid
+
+```rust
+// ❌ BAD: Injecting concrete type
+#[inject]
+service: Arc<MyServiceImpl>,
+
+// ✅ GOOD: Inject trait
+#[inject]
+service: Arc<dyn MyService>,
+
+// ❌ BAD: Passing container around
+fn do_work(container: &Container) {
+    let service = container.resolve();
+}
+
+// ✅ GOOD: Inject what you need
+fn do_work(service: Arc<dyn MyService>) {
+    service.do_something();
+}
+
+// ❌ BAD: Service locator in business logic
+impl MyService {
+    fn process(&self) {
+        let other = GLOBAL_CONTAINER.resolve();
+    }
+}
+
+// ✅ GOOD: Dependencies injected via constructor
+#[derive(Injectable)]
+struct MyServiceImpl {
+    #[inject]
+    other: Arc<dyn OtherService>,
+}
+```

@@ -1,0 +1,62 @@
+[package]
+name = "devmer-tui"
+description = "Terminal User Interface for Devmer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Async runtime
+tokio.workspace = true
+async-trait.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Time
+chrono.workspace = true
+
+# UUID
+uuid.workspace = true
+
+# TUI framework
+ratatui = "0.29"
+crossterm = { version = "0.28", features = ["event-stream"] }
+
+# Futures for async event handling
+futures = "0.3"
+
+# Better panic handling
+better-panic = "0.3"
+
+# Color manipulation
+palette = "0.7"
+
+# Syntax highlighting for diffs
+syntect = "5.2"
+
+# Unicode width for text handling
+unicode-width = "0.2"
+
+# Workspace crates
+devmer-core.workspace = true
+devmer-config.workspace = true
+devmer-state.workspace = true
+devmer-di.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
+[features]
+default = []

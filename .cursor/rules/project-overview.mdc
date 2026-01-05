@@ -1,0 +1,45 @@
+---
+description: Overview of Devmer project architecture and conventions
+globs: ["**/*.rs", "**/*.toml", "**/*.md"]
+alwaysApply: true
+---
+
+# Devmer Project Overview
+
+Devmer is a Rust-based Infrastructure as Code (IaC) tool similar to Pulumi/Terraform with the following key characteristics:
+
+## Project Goals
+- Self-hosted state management (no proprietary cloud service required)
+- Multi-language SDK support (Python, TypeScript/Deno/Bun, Go, Rust)
+- Modular provider architecture (separate crates per cloud provider)
+- Enterprise features (SOC2 compliance, multi-organization support)
+
+## Crate Organization
+The project uses a workspace with multiple crates:
+- `devmer-cli` - CLI application
+- `devmer-core` - Core engine, resource graph, execution
+- `devmer-state` - State management backends
+- `devmer-secrets` - Secrets encryption engine
+- `devmer-audit` - Audit logging & compliance
+- `devmer-config` - Configuration parsing & environment interpolation
+- `devmer-migrate` - State import from Terraform/Pulumi
+- `devmer-org` - Multi-organization management
+- `devmer-tui` - Terminal User Interface
+- `devmer-sdk` - Base SDK traits and types
+- `devmer-rpc` - gRPC/IPC for language host communication
+- `providers/devmer-aws`, `devmer-gcp`, `devmer-azure`, etc.
+
+## Key Design Principles
+1. **Async-first**: Use `tokio` runtime, all I/O operations are async
+2. **Type-safe**: Leverage Rust's type system for compile-time guarantees
+3. **Modular**: Each feature in its own crate with clear boundaries
+4. **Testable**: Design for unit and integration testing
+5. **Secure**: Never log secrets, use secure memory handling
+
+## Naming Conventions
+- Crates: `devmer-{feature}` (kebab-case)
+- Modules: `snake_case`
+- Types: `PascalCase`
+- Functions: `snake_case`
+- Constants: `SCREAMING_SNAKE_CASE`
+- Resource types: `{provider}:{service}:{Resource}` (e.g., `aws:s3:Bucket`)

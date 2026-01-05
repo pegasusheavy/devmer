@@ -1,0 +1,199 @@
+---
+description: Guidelines for implementing cloud providers
+globs: ["**/providers/**/*.rs", "**/devmer-aws/**", "**/devmer-gcp/**", "**/devmer-azure/**"]
+---
+
+# Provider Implementation Guidelines
+
+## Provider Trait
+
+All providers must implement the `Provider` trait:
+
+```rust
+#[async_trait]
+pub trait Provider: Send + Sync {
+    /// Provider identifier (e.g., "aws", "gcp", "azure")
+    fn name(&self) -> &str;
+    
+    /// Provider version
+    fn version(&self) -> &str;
+    
+    /// Configure the provider with settings
+    async fn configure(&mut self, config: ProviderConfig) -> Result<()>;
+    
+    /// Get the schema for all resources
+    fn get_schema(&self) -> &ProviderSchema;
+    
+    /// Check provider health/connectivity
+    async fn health_check(&self) -> Result<HealthStatus>;
+}
+```
+
+## Resource Trait
+
+Each resource type implements the `Resource` trait:
+
+```rust
+#[async_trait]
+pub trait Resource: Send + Sync {
+    /// Resource type name (e.g., "aws:s3:Bucket")
+    fn type_name(&self) -> &str;
+    
+    /// Validate inputs before operations
+    async fn check(&self, inputs: &ResourceInputs) -> Result<CheckResult>;
+    
+    /// Compare desired vs actual state
+    async fn diff(
+        &self,
+        id: &str,
+        olds: &ResourceInputs,
+        news: &ResourceInputs,
+    ) -> Result<DiffResult>;
+    
+    /// Create a new resource
+    async fn create(&self, inputs: &ResourceInputs) -> Result<CreateResult>;
+    
+    /// Read current resource state
+    async fn read(&self, id: &str) -> Result<ReadResult>;
+    
+    /// Update an existing resource
+    async fn update(
+        &self,
+        id: &str,
+        olds: &ResourceInputs,
+        news: &ResourceInputs,
+    ) -> Result<UpdateResult>;
+    
+    /// Delete a resource
+    async fn delete(&self, id: &str) -> Result<()>;
+}
+```
+
+## Resource Naming
+
+```rust
+// Resource type format: {provider}:{service}:{Resource}
+pub const TYPE_NAME: &str = "aws:s3:Bucket";
+
+// URN format: urn:devmer:{stack}::{project}::{type}::{name}
+pub fn create_urn(stack: &str, project: &str, type_name: &str, name: &str) -> String {
+    format!("urn:devmer:{}::{}::{}::{}", stack, project, type_name, name)
+}
+```
+
+## Input/Output Schemas
+
+Define schemas for IDE support and validation:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct BucketArgs {
+    /// The name of the bucket
+    #[serde(default)]
+    pub bucket: Option<String>,
+    
+    /// Enable versioning
+    #[serde(default)]
+    pub versioning: Option<bool>,
+    
+    /// Tags to apply to the bucket
+    #[serde(default)]
+    pub tags: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BucketOutputs {
+    /// The ARN of the bucket
+    pub arn: String,
+    
+    /// The regional domain name
+    pub regional_domain_name: String,
+    
+    /// The bucket name (may differ from input if auto-generated)
+    pub bucket: String,
+}
+```
+
+## Error Handling
+
+Use provider-specific error types:
+
+```rust
+#[derive(Error, Debug)]
+pub enum AwsError {
+    #[error("AWS API error: {message}")]
+    Api { 
+        message: String, 
+        code: Option<String>,
+        request_id: Option<String>,
+    },
+    
+    #[error("resource not found: {resource_type} {id}")]
+    NotFound { resource_type: String, id: String },
+    
+    #[error("permission denied: {action} on {resource}")]
+    PermissionDenied { action: String, resource: String },
+    
+    #[error("rate limited, retry after {retry_after:?}")]
+    RateLimited { retry_after: Option<Duration> },
+}
+```
+
+## Retry Logic
+
+Implement exponential backoff for transient failures:
+
+```rust
+pub async fn with_retry<T, F, Fut>(
+    operation: F,
+    max_retries: u32,
+) -> Result<T>
+where
+    F: Fn() -> Fut,
+    Fut: Future<Output = Result<T>>,
+{
+    let mut attempt = 0;
+    loop {
+        match operation().await {
+            Ok(result) => return Ok(result),
+            Err(e) if e.is_retryable() && attempt < max_retries => {
+                let delay = Duration::from_millis(100 * 2u64.pow(attempt));
+                tokio::time::sleep(delay).await;
+                attempt += 1;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+```
+
+## Testing Providers
+
+Use mocking for unit tests:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::predicate::*;
+    
+    #[tokio::test]
+    async fn test_create_bucket() {
+        let mut mock_client = MockS3Client::new();
+        mock_client
+            .expect_create_bucket()
+            .with(eq("test-bucket"))
+            .returning(|_| Ok(CreateBucketOutput::default()));
+        
+        let provider = AwsProvider::with_client(mock_client);
+        let bucket = Bucket::new(&provider);
+        
+        let result = bucket.create(&BucketArgs {
+            bucket: Some("test-bucket".into()),
+            ..Default::default()
+        }).await;
+        
+        assert!(result.is_ok());
+    }
+}
+```

@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Devmer - Infrastructure as Code in Rust | Self-Hosted IaC Platform</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <!-- Primary Meta Tags -->
+  <meta name="title" content="Devmer - Infrastructure as Code in Rust | Self-Hosted IaC Platform">
+  <meta name="description" content="Devmer is an open-source, self-hosted Infrastructure as Code platform built in Rust. Define cloud infrastructure using Python, TypeScript, Go, or Rust. No vendor lock-in, full control over your state.">
+  <meta name="keywords" content="infrastructure as code, IaC, Rust, DevOps, cloud infrastructure, Terraform alternative, Pulumi alternative, self-hosted, AWS, GCP, Azure, TypeScript, Python, Go">
+  <meta name="author" content="Pegasus Heavy Industries">
+  <meta name="robots" content="index, follow">
+  <meta name="language" content="English">
+  <meta name="revisit-after" content="7 days">
+  
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://devmer.io/">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://devmer.io/">
+  <meta property="og:title" content="Devmer - Infrastructure as Code in Rust">
+  <meta property="og:description" content="Open-source, self-hosted Infrastructure as Code platform. Define cloud infrastructure using Python, TypeScript, Go, or Rust with no vendor lock-in.">
+  <meta property="og:image" content="https://devmer.io/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="Devmer">
+  <meta property="og:locale" content="en_US">
+  
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://devmer.io/">
+  <meta name="twitter:title" content="Devmer - Infrastructure as Code in Rust">
+  <meta name="twitter:description" content="Open-source, self-hosted Infrastructure as Code platform. Define cloud infrastructure using Python, TypeScript, Go, or Rust with no vendor lock-in.">
+  <meta name="twitter:image" content="https://devmer.io/assets/twitter-card.png">
+  <meta name="twitter:creator" content="@PegasusHeavyInd">
+  
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#1a1a2e">
+  
+  <!-- Preconnect to external resources -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  
+  <!-- JSON-LD Structured Data - Organization -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Pegasus Heavy Industries",
+    "url": "https://devmer.io",
+    "logo": "https://devmer.io/assets/logo.png",
+    "description": "Building developer tools for the modern cloud infrastructure era.",
+    "sameAs": [
+      "https://github.com/PegasusHeavyIndustries",
+      "https://twitter.com/PegasusHeavyInd"
+    ],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "email": "support@devmer.io"
+    }
+  }
+  </script>
+  
+  <!-- JSON-LD Structured Data - Software Application -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Devmer",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Linux, macOS, Windows",
+    "description": "Open-source, self-hosted Infrastructure as Code platform built in Rust. Define and deploy cloud infrastructure using Python, TypeScript, Go, or Rust.",
+    "url": "https://devmer.io",
+    "downloadUrl": "https://github.com/PegasusHeavyIndustries/devmer/releases",
+    "softwareVersion": "0.1.0",
+    "releaseNotes": "https://devmer.io/changelog",
+    "screenshot": "https://devmer.io/assets/screenshot.png",
+    "author": {
+      "@type": "Organization",
+      "name": "Pegasus Heavy Industries"
+    },
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Community Edition",
+        "price": "0",
+        "priceCurrency": "USD",
+        "description": "Free, open-source edition with full IaC capabilities"
+      },
+      {
+        "@type": "Offer",
+        "name": "Team Edition",
+        "price": "49",
+        "priceCurrency": "USD",
+        "description": "Team collaboration features, priority support"
+      },
+      {
+        "@type": "Offer",
+        "name": "Enterprise Edition",
+        "priceSpecification": {
+          "@type": "PriceSpecification",
+          "price": "Custom",
+          "priceCurrency": "USD"
+        },
+        "description": "Enterprise features, SSO, audit logging, dedicated support"
+      }
+    ],
+    "featureList": [
+      "Multi-language SDKs (Python, TypeScript, Go, Rust)",
+      "Self-hosted state management",
+      "No vendor lock-in",
+      "Multi-cloud support (AWS, GCP, Azure)",
+      "Secrets encryption",
+      "SOC2 compliance features",
+      "Terminal UI for deployment visualization"
+    ],
+    "programmingLanguage": ["Rust", "Python", "TypeScript", "Go"],
+    "license": "https://opensource.org/licenses/Apache-2.0"
+  }
+  </script>
+  
+  <!-- JSON-LD Structured Data - FAQ for AEO -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Devmer?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Devmer is an open-source Infrastructure as Code (IaC) platform built in Rust. It allows you to define, deploy, and manage cloud infrastructure using familiar programming languages like Python, TypeScript, Go, or Rust, instead of configuration files. Unlike other IaC tools, Devmer is fully self-hosted with no vendor lock-in."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How is Devmer different from Terraform?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Devmer differs from Terraform in several key ways: 1) It uses real programming languages instead of HCL configuration files, giving you loops, conditionals, and abstractions. 2) It's fully self-hosted - you control your state storage (S3, PostgreSQL, etc.) with no required cloud service. 3) It's built in Rust for superior performance. 4) It includes built-in secrets encryption and SOC2 compliance features."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How is Devmer different from Pulumi?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "While both Devmer and Pulumi use programming languages for IaC, Devmer is fully self-hosted with no required cloud service. Your state stays in your infrastructure (S3, PostgreSQL, etc.). Devmer also offers a Terminal UI for deployment visualization, built-in HCL migration tools, and is completely open-source with an Apache 2.0 license."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What programming languages does Devmer support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Devmer supports Python, TypeScript/JavaScript (including Node.js, Deno, and Bun runtimes), Go, and Rust scripting via Rhai. This allows teams to use their preferred language and existing skills to define infrastructure."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Where does Devmer store state?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Devmer supports multiple self-hosted state backends: AWS S3 with DynamoDB locking, Google Cloud Storage, Azure Blob Storage, PostgreSQL, MySQL/MariaDB, Redis, etcd, HashiCorp Consul, MinIO, Git repositories, and Kubernetes ConfigMaps/Secrets. You maintain full control over your infrastructure state."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is Devmer free to use?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, Devmer Community Edition is completely free and open-source under the Apache 2.0 license. It includes the full IaC engine, all language SDKs, and state backends. Team and Enterprise editions are available for organizations needing collaboration features, advanced compliance, and priority support."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I migrate from Terraform to Devmer?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, Devmer includes migration tools to help you transition from Terraform, OpenTofu, or Pulumi. The HCL converter can transform your existing Terraform configurations into Devmer code in your preferred programming language, and the state importer can migrate your existing infrastructure state."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What cloud providers does Devmer support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Devmer supports major cloud providers including AWS, Google Cloud Platform (GCP), and Microsoft Azure. It also supports Kubernetes, and the provider system is extensible so you can create custom providers for any API or service."
+        }
+      }
+    ]
+  }
+  </script>
+  
+  <!-- JSON-LD Structured Data - WebSite with SearchAction -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Devmer",
+    "url": "https://devmer.io",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://devmer.io/docs/search?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
+</head>
+<body>
+  <app-root></app-root>
+  
+  <!-- Fallback content for SEO crawlers -->
+  <noscript>
+    <div style="padding: 20px; font-family: system-ui, sans-serif;">
+      <h1>Devmer - Infrastructure as Code in Rust</h1>
+      <p>Devmer is an open-source, self-hosted Infrastructure as Code platform built in Rust. Define and deploy cloud infrastructure using Python, TypeScript, Go, or Rust.</p>
+      <h2>Key Features</h2>
+      <ul>
+        <li>Multi-language SDKs (Python, TypeScript, Go, Rust)</li>
+        <li>Self-hosted state management (S3, PostgreSQL, etc.)</li>
+        <li>No vendor lock-in</li>
+        <li>Multi-cloud support (AWS, GCP, Azure)</li>
+        <li>Built-in secrets encryption</li>
+        <li>SOC2 compliance features</li>
+      </ul>
+      <p>Please enable JavaScript to use this application, or visit our <a href="https://github.com/PegasusHeavyIndustries/devmer">GitHub repository</a> for documentation.</p>
+    </div>
+  </noscript>
+</body>
+</html>

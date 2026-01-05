@@ -1,0 +1,210 @@
+---
+description: Testing patterns and conventions for Devmer
+globs: ["**/*.rs", "**/tests/**"]
+---
+
+# Testing Guidelines
+
+## Test Organization
+
+```
+crates/devmer-state/
+├── src/
+│   ├── lib.rs
+│   └── backends/
+│       └── s3.rs          # Contains unit tests in #[cfg(test)] mod
+├── tests/
+│   ├── integration_s3.rs  # Integration tests
+│   └── fixtures/          # Test data files
+└── benches/
+    └── state_ops.rs       # Benchmarks
+```
+
+## Unit Tests
+
+Place unit tests in the same file as the code:
+
+```rust
+// src/backends/s3.rs
+
+pub struct S3Backend { /* ... */ }
+
+impl S3Backend {
+    pub async fn get_state(&self, stack: &str) -> Result<Option<State>> {
+        // implementation
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    
+    fn create_test_state() -> State {
+        State {
+            version: 1,
+            resources: vec![],
+            ..Default::default()
+        }
+    }
+    
+    #[tokio::test]
+    async fn test_get_state_returns_none_for_missing_stack() {
+        let backend = S3Backend::new_mock();
+        
+        let result = backend.get_state("nonexistent").await.unwrap();
+        
+        assert!(result.is_none());
+    }
+    
+    #[tokio::test]
+    async fn test_get_state_returns_saved_state() {
+        let backend = S3Backend::new_mock();
+        let state = create_test_state();
+        
+        backend.save_state("my-stack", &state).await.unwrap();
+        let result = backend.get_state("my-stack").await.unwrap();
+        
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().version, 1);
+    }
+}
+```
+
+## Integration Tests
+
+Use `tests/` directory for integration tests:
+
+```rust
+// tests/integration_s3.rs
+
+use devmer_state::{S3Backend, StateBackend};
+use testcontainers::{clients, images::minio};
+
+#[tokio::test]
+#[ignore] // Run with: cargo test -- --ignored
+async fn test_s3_backend_with_real_minio() {
+    let docker = clients::Cli::default();
+    let minio = docker.run(minio::MinIO::default());
+    
+    let endpoint = format!("http://localhost:{}", minio.get_host_port_ipv4(9000));
+    let backend = S3Backend::new(&endpoint, "test-bucket").await.unwrap();
+    
+    // Test operations...
+}
+```
+
+## Test Naming Convention
+
+Use descriptive names: `test_{function}_{scenario}_{expected}`
+
+```rust
+#[test]
+fn test_parse_urn_valid_urn_returns_parsed_components() { }
+
+#[test]
+fn test_parse_urn_missing_stack_returns_error() { }
+
+#[test]
+fn test_parse_urn_empty_string_returns_error() { }
+```
+
+## Async Testing
+
+Use `#[tokio::test]` for async tests:
+
+```rust
+#[tokio::test]
+async fn test_concurrent_state_access() {
+    let backend = Arc::new(LocalBackend::new().await.unwrap());
+    
+    let handles: Vec<_> = (0..10)
+        .map(|i| {
+            let backend = Arc::clone(&backend);
+            tokio::spawn(async move {
+                backend.get_state(&format!("stack-{}", i)).await
+            })
+        })
+        .collect();
+    
+    for handle in handles {
+        assert!(handle.await.unwrap().is_ok());
+    }
+}
+```
+
+## Mocking
+
+Use `mockall` for mocking traits:
+
+```rust
+use mockall::{automock, predicate::*};
+
+#[automock]
+#[async_trait]
+pub trait StateBackend {
+    async fn get_state(&self, stack: &str) -> Result<Option<State>>;
+    async fn save_state(&self, stack: &str, state: &State) -> Result<()>;
+}
+
+#[tokio::test]
+async fn test_engine_uses_backend() {
+    let mut mock = MockStateBackend::new();
+    mock.expect_get_state()
+        .with(eq("production"))
+        .returning(|_| Ok(Some(State::default())));
+    
+    let engine = Engine::new(Box::new(mock));
+    let result = engine.load_stack("production").await;
+    
+    assert!(result.is_ok());
+}
+```
+
+## Test Fixtures
+
+Use `include_str!` or fixtures directory:
+
+```rust
+const SAMPLE_STATE: &str = include_str!("../fixtures/sample_state.json");
+
+#[test]
+fn test_parse_state_from_json() {
+    let state: State = serde_json::from_str(SAMPLE_STATE).unwrap();
+    assert_eq!(state.resources.len(), 3);
+}
+```
+
+## Property-Based Testing
+
+Use `proptest` for property-based tests:
+
+```rust
+use proptest::prelude::*;
+
+proptest! {
+    #[test]
+    fn test_urn_roundtrip(
+        stack in "[a-z][a-z0-9-]{0,20}",
+        project in "[a-z][a-z0-9-]{0,20}",
+        name in "[a-z][a-z0-9-]{0,20}"
+    ) {
+        let urn = Urn::new(&stack, &project, "aws:s3:Bucket", &name);
+        let parsed = Urn::parse(&urn.to_string()).unwrap();
+        
+        assert_eq!(urn.stack, parsed.stack);
+        assert_eq!(urn.project, parsed.project);
+        assert_eq!(urn.name, parsed.name);
+    }
+}
+```
+
+## Test Coverage
+
+Run coverage with `cargo-tarpaulin`:
+
+```bash
+cargo tarpaulin --out Html --output-dir coverage/
+```
+
+Aim for >80% coverage on core logic.

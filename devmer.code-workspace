@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../devmer-premium"
+		},
+		{
+			"path": "../cloudmer"
+		}
+	],
+	"settings": {}
+}

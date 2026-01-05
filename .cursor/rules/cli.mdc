@@ -1,0 +1,214 @@
+---
+description: CLI design patterns and conventions
+globs: ["**/devmer-cli/**/*.rs", "**/cli/**/*.rs"]
+---
+
+# CLI Design Guidelines
+
+## Command Structure
+
+Use `clap` with derive macros:
+
+```rust
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "devmer")]
+#[command(about = "Infrastructure as Code for the modern cloud")]
+#[command(version, author)]
+pub struct Cli {
+    /// Enable verbose output
+    #[arg(short, long, global = true)]
+    pub verbose: bool,
+    
+    /// Configuration file path
+    #[arg(short, long, global = true, default_value = "Devmer.toml")]
+    pub config: PathBuf,
+    
+    #[command(subcommand)]
+    pub command: Commands,
+}
+
+#[derive(Subcommand)]
+pub enum Commands {
+    /// Create or update infrastructure
+    Up {
+        /// Stack to deploy
+        #[arg(short, long)]
+        stack: Option<String>,
+        
+        /// Skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
+    
+    /// Preview changes without deploying
+    Preview {
+        #[arg(short, long)]
+        stack: Option<String>,
+    },
+    
+    /// Destroy infrastructure
+    Down {
+        #[arg(short, long)]
+        stack: Option<String>,
+        
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
+    
+    /// Stack management
+    Stack {
+        #[command(subcommand)]
+        command: StackCommands,
+    },
+}
+```
+
+## Output Formatting
+
+Support multiple output formats:
+
+```rust
+#[derive(Clone, Copy, ValueEnum)]
+pub enum OutputFormat {
+    Human,
+    Json,
+    Yaml,
+}
+
+pub fn print_resources(resources: &[Resource], format: OutputFormat) {
+    match format {
+        OutputFormat::Human => print_resources_table(resources),
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(resources).unwrap()),
+        OutputFormat::Yaml => println!("{}", serde_yaml::to_string(resources).unwrap()),
+    }
+}
+```
+
+## Colored Output
+
+Use `colored` crate for terminal colors:
+
+```rust
+use colored::*;
+
+pub fn print_diff(diff: &ResourceDiff) {
+    match diff.change_type {
+        ChangeType::Create => {
+            println!("{} {}", "+".green().bold(), diff.resource_name.green());
+        }
+        ChangeType::Update => {
+            println!("{} {}", "~".yellow().bold(), diff.resource_name.yellow());
+        }
+        ChangeType::Delete => {
+            println!("{} {}", "-".red().bold(), diff.resource_name.red());
+        }
+        ChangeType::NoOp => {
+            println!("{} {}", " ".normal(), diff.resource_name.dimmed());
+        }
+    }
+}
+```
+
+## Progress Indicators
+
+Use `indicatif` for progress bars:
+
+```rust
+use indicatif::{ProgressBar, ProgressStyle, MultiProgress};
+
+pub async fn deploy_with_progress(resources: &[Resource]) -> Result<()> {
+    let multi = MultiProgress::new();
+    let style = ProgressStyle::default_bar()
+        .template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+        .unwrap();
+    
+    let pb = multi.add(ProgressBar::new(resources.len() as u64));
+    pb.set_style(style);
+    
+    for resource in resources {
+        pb.set_message(format!("Creating {}", resource.name));
+        create_resource(resource).await?;
+        pb.inc(1);
+    }
+    
+    pb.finish_with_message("Deployment complete");
+    Ok(())
+}
+```
+
+## Interactive Prompts
+
+Use `dialoguer` for user input:
+
+```rust
+use dialoguer::{Confirm, Select, Input};
+
+pub fn confirm_deployment(changes: &[Change]) -> Result<bool> {
+    println!("\nPlanned changes:");
+    for change in changes {
+        print_change(change);
+    }
+    
+    Confirm::new()
+        .with_prompt("Do you want to apply these changes?")
+        .default(false)
+        .interact()
+        .map_err(Into::into)
+}
+
+pub fn select_stack(stacks: &[String]) -> Result<String> {
+    let selection = Select::new()
+        .with_prompt("Select a stack")
+        .items(stacks)
+        .interact()?;
+    
+    Ok(stacks[selection].clone())
+}
+```
+
+## Error Display
+
+Format errors nicely for users:
+
+```rust
+pub fn display_error(error: &Error) {
+    eprintln!("{}: {}", "Error".red().bold(), error);
+    
+    if let Some(cause) = error.source() {
+        eprintln!("\n{}: {}", "Caused by".yellow(), cause);
+    }
+    
+    if let Some(hint) = error.hint() {
+        eprintln!("\n{}: {}", "Hint".cyan(), hint);
+    }
+}
+```
+
+## Exit Codes
+
+Use consistent exit codes:
+
+```rust
+pub enum ExitCode {
+    Success = 0,
+    GeneralError = 1,
+    ConfigError = 2,
+    StateError = 3,
+    ProviderError = 4,
+    UserAborted = 130,
+}
+
+pub fn main() {
+    let result = run();
+    
+    std::process::exit(match result {
+        Ok(_) => ExitCode::Success as i32,
+        Err(e) => {
+            display_error(&e);
+            e.exit_code() as i32
+        }
+    });
+}
+```

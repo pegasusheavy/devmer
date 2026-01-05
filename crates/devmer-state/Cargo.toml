@@ -1,0 +1,61 @@
+[package]
+name = "devmer-state"
+description = "State management and backend implementations for Devmer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+devmer-core.workspace = true
+
+# Async stream helpers
+futures-lite = "2.5"
+tokio-stream = "0.1"
+sha2 = "0.10"
+hex = "0.4"
+dirs = "5.0"
+
+# Backends will be feature-gated
+[features]
+default = ["local"]
+local = []
+s3 = ["aws-sdk-s3", "aws-sdk-dynamodb"]
+gcs = []
+postgres = ["sqlx"]
+redis-backend = ["dep:redis"]
+
+[dependencies.aws-sdk-s3]
+version = "1.65"
+optional = true
+
+[dependencies.aws-sdk-dynamodb]
+version = "1.58"
+optional = true
+
+[dependencies.sqlx]
+version = "0.8"
+features = ["runtime-tokio", "postgres", "json", "chrono", "uuid"]
+optional = true
+
+[dependencies.redis]
+version = "0.27"
+features = ["tokio-comp", "connection-manager"]
+optional = true
+
+[dev-dependencies]
+mockall.workspace = true
+tempfile = "3.14"
+tokio = { workspace = true, features = ["test-util"] }

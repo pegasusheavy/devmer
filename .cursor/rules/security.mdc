@@ -1,0 +1,153 @@
+---
+description: Security best practices for Devmer
+globs: ["**/*.rs", "**/*.toml"]
+alwaysApply: true
+---
+
+# Security Best Practices
+
+## Secret Handling
+
+### Never Log Secrets
+
+```rust
+// ✅ Good - mask secrets in logs
+tracing::info!(
+    backend = %backend_type,
+    bucket = %bucket,
+    "connected to state backend"
+);
+
+// ❌ Bad - logging credentials
+tracing::debug!("connecting with key: {}", api_key);
+```
+
+### Use Secure Memory
+
+```rust
+use secrecy::{Secret, ExposeSecret};
+use zeroize::Zeroize;
+
+pub struct Credentials {
+    pub access_key: String,
+    pub secret_key: Secret<String>,  // Wrapped in Secret<>
+}
+
+impl Credentials {
+    pub fn authenticate(&self) -> Result<()> {
+        // Only expose when absolutely necessary
+        let secret = self.secret_key.expose_secret();
+        // Use secret...
+    }
+}
+
+// For sensitive byte arrays
+let mut key_bytes = derive_key(password);
+// ... use key_bytes ...
+key_bytes.zeroize();  // Zero memory when done
+```
+
+### Encryption Patterns
+
+```rust
+use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
+use aes_gcm::aead::Aead;
+
+pub fn encrypt_secret(plaintext: &[u8], key: &[u8; 32]) -> Result<Vec<u8>> {
+    let cipher = Aes256Gcm::new_from_slice(key)?;
+    let nonce = generate_random_nonce();  // 12 bytes
+    
+    let ciphertext = cipher.encrypt(&nonce, plaintext)?;
+    
+    // Prepend nonce to ciphertext
+    let mut result = nonce.to_vec();
+    result.extend(ciphertext);
+    Ok(result)
+}
+```
+
+## Input Validation
+
+### Validate All User Input
+
+```rust
+pub fn validate_stack_name(name: &str) -> Result<()> {
+    // Length check
+    if name.is_empty() || name.len() > 100 {
+        return Err(ValidationError::InvalidLength);
+    }
+    
+    // Character whitelist
+    let valid_pattern = Regex::new(r"^[a-zA-Z][a-zA-Z0-9-_]*$").unwrap();
+    if !valid_pattern.is_match(name) {
+        return Err(ValidationError::InvalidCharacters);
+    }
+    
+    Ok(())
+}
+```
+
+### Sanitize Path Inputs
+
+```rust
+use std::path::{Path, PathBuf};
+
+pub fn safe_join(base: &Path, user_input: &str) -> Result<PathBuf> {
+    let path = base.join(user_input);
+    let canonical = path.canonicalize()?;
+    
+    // Ensure path is still under base directory
+    if !canonical.starts_with(base.canonicalize()?) {
+        return Err(SecurityError::PathTraversal);
+    }
+    
+    Ok(canonical)
+}
+```
+
+## Authentication & Authorization
+
+### Role Assumption
+
+```rust
+pub async fn assume_role(role_arn: &str) -> Result<Credentials> {
+    let sts_client = aws_sdk_sts::Client::new(&config);
+    
+    let assumed = sts_client
+        .assume_role()
+        .role_arn(role_arn)
+        .role_session_name("devmer-session")
+        .duration_seconds(3600)  // 1 hour max
+        .send()
+        .await?;
+    
+    // Credentials auto-expire
+    Ok(Credentials::from(assumed.credentials))
+}
+```
+
+## Audit Logging
+
+### Log Security-Relevant Events
+
+```rust
+pub async fn access_secret(&self, name: &str, actor: &Actor) -> Result<Secret<String>> {
+    // Log the access (but not the value!)
+    audit::log(AuditEvent {
+        event_type: AuditEventType::SecretAccessed,
+        actor: actor.clone(),
+        resource: Some(format!("secret:{}", name)),
+        outcome: Outcome::Success,
+        ..Default::default()
+    }).await?;
+    
+    self.secrets_provider.get(name).await
+}
+```
+
+## Dependency Security
+
+- Run `cargo audit` regularly
+- Pin dependencies with exact versions in production
+- Review security advisories for dependencies
+- Use `cargo deny` for license and vulnerability checks

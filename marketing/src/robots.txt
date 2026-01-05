@@ -1,0 +1,49 @@
+# Devmer Marketing Website
+# https://devmer.io
+
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://devmer.io/sitemap.xml
+Sitemap: https://devmer.io/sitemap-blog.xml
+
+# Allow all crawlers access to main content
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# AI/LLM crawlers - allow for AEO
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+# Disallow admin/API paths
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_/
+Disallow: /assets/private/
+
+# Crawl delay for polite crawling
+User-agent: *
+Crawl-delay: 1
+
+# Host
+Host: https://devmer.io

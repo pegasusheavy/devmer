@@ -1,0 +1,234 @@
+---
+description: SDK design patterns for multi-language support
+globs: ["**/devmer-sdk/**/*.rs", "**/devmer-rpc/**/*.rs", "**/sdks/**"]
+---
+
+# SDK Development Guidelines
+
+## Core SDK Traits
+
+Define language-agnostic traits:
+
+```rust
+/// Base trait for all resources
+#[async_trait]
+pub trait ResourceBase: Send + Sync {
+    /// Get the resource URN
+    fn urn(&self) -> &str;
+    
+    /// Get the resource type
+    fn resource_type(&self) -> &str;
+    
+    /// Get all outputs
+    fn outputs(&self) -> &ResourceOutputs;
+}
+
+/// Output represents an asynchronously-computed value
+pub struct Output<T> {
+    inner: Arc<OutputInner<T>>,
+}
+
+impl<T: Clone + Send + Sync + 'static> Output<T> {
+    pub fn new(value: T) -> Self { /* ... */ }
+    
+    pub fn from_future<F: Future<Output = T> + Send + 'static>(fut: F) -> Self { /* ... */ }
+    
+    pub fn apply<U, F>(&self, f: F) -> Output<U>
+    where
+        F: Fn(T) -> U + Send + Sync + 'static,
+        U: Clone + Send + Sync + 'static,
+    { /* ... */ }
+}
+```
+
+## Resource Options
+
+Standard options for all resources:
+
+```rust
+#[derive(Default, Clone)]
+pub struct ResourceOptions {
+    /// Parent resource for hierarchical organization
+    pub parent: Option<Arc<dyn ResourceBase>>,
+    
+    /// Explicit dependencies
+    pub depends_on: Vec<Arc<dyn ResourceBase>>,
+    
+    /// Protect from deletion
+    pub protect: bool,
+    
+    /// Provider to use (overrides default)
+    pub provider: Option<Arc<dyn Provider>>,
+    
+    /// Aliases for state migration
+    pub aliases: Vec<Alias>,
+    
+    /// Transformations to apply
+    pub transformations: Vec<Box<dyn Transformation>>,
+    
+    /// Custom timeouts
+    pub timeouts: Option<Timeouts>,
+    
+    /// Import existing resource
+    pub import_id: Option<String>,
+}
+```
+
+## Component Resources
+
+Base for logical groupings:
+
+```rust
+pub trait ComponentResource: ResourceBase {
+    fn component_type(&self) -> &str;
+    
+    fn register_outputs(&self, outputs: HashMap<String, Output<Value>>);
+}
+
+// Macro for defining components
+#[macro_export]
+macro_rules! component {
+    ($name:ident, $type:expr, { $($field:ident: $ty:ty),* }) => {
+        pub struct $name {
+            urn: String,
+            $(pub $field: Output<$ty>,)*
+        }
+        
+        impl ComponentResource for $name {
+            fn component_type(&self) -> &str { $type }
+            // ...
+        }
+    };
+}
+```
+
+## gRPC Protocol
+
+Define protobuf messages for language host communication:
+
+```protobuf
+// proto/engine.proto
+
+syntax = "proto3";
+package devmer.engine.v1;
+
+service Engine {
+    rpc RegisterResource(RegisterResourceRequest) returns (RegisterResourceResponse);
+    rpc ReadResource(ReadResourceRequest) returns (ReadResourceResponse);
+    rpc Invoke(InvokeRequest) returns (InvokeResponse);
+    rpc Log(LogRequest) returns (LogResponse);
+}
+
+message RegisterResourceRequest {
+    string type = 1;
+    string name = 2;
+    google.protobuf.Struct inputs = 3;
+    ResourceOptions options = 4;
+}
+
+message RegisterResourceResponse {
+    string urn = 1;
+    string id = 2;
+    google.protobuf.Struct outputs = 3;
+}
+```
+
+## Language Host Interface
+
+Interface for SDK implementations:
+
+```rust
+#[async_trait]
+pub trait LanguageHost: Send + Sync {
+    /// Start the language runtime
+    async fn start(&mut self, program: &Path) -> Result<()>;
+    
+    /// Wait for program completion
+    async fn wait(&mut self) -> Result<ExitStatus>;
+    
+    /// Send resource registration to engine
+    async fn on_resource_registered(&self, resource: &RegisteredResource) -> Result<()>;
+    
+    /// Handle engine callbacks
+    async fn handle_callback(&self, callback: Callback) -> Result<Value>;
+}
+```
+
+## Python SDK Patterns
+
+```python
+# sdks/python/devmer/resource.py
+
+from typing import TypeVar, Generic, Optional, Any
+from dataclasses import dataclass
+
+T = TypeVar('T')
+
+class Output(Generic[T]):
+    """Represents an asynchronously-computed value."""
+    
+    def __init__(self, value: T | None = None):
+        self._value = value
+        self._resolved = value is not None
+    
+    def apply(self, func: Callable[[T], U]) -> 'Output[U]':
+        """Transform the output value."""
+        if self._resolved:
+            return Output(func(self._value))
+        return Output()  # Will be resolved later
+    
+    def __getattr__(self, name: str) -> 'Output[Any]':
+        """Allow property access on outputs."""
+        return self.apply(lambda v: getattr(v, name))
+
+
+class Resource:
+    """Base class for all resources."""
+    
+    def __init__(
+        self,
+        resource_type: str,
+        name: str,
+        props: dict,
+        opts: Optional[ResourceOptions] = None
+    ):
+        self._type = resource_type
+        self._name = name
+        self._urn = register_resource(resource_type, name, props, opts)
+```
+
+## TypeScript SDK Patterns
+
+```typescript
+// sdks/typescript/src/resource.ts
+
+export class Output<T> {
+    private readonly promise: Promise<T>;
+    
+    constructor(valueOrPromise: T | Promise<T>) {
+        this.promise = Promise.resolve(valueOrPromise);
+    }
+    
+    apply<U>(func: (value: T) => U | Promise<U>): Output<U> {
+        return new Output(this.promise.then(func));
+    }
+    
+    get<K extends keyof T>(key: K): Output<T[K]> {
+        return this.apply(v => v[key]);
+    }
+}
+
+export abstract class Resource {
+    public readonly urn: Output<string>;
+    
+    constructor(
+        type: string,
+        name: string,
+        props: Record<string, any>,
+        opts?: ResourceOptions
+    ) {
+        const registration = registerResource(type, name, props, opts);
+        this.urn = new Output(registration.then(r => r.urn));
+    }
+}
+```

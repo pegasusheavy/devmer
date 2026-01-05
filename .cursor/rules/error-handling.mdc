@@ -1,0 +1,124 @@
+---
+description: Error handling patterns for Devmer
+globs: ["**/*.rs"]
+---
+
+# Error Handling Patterns
+
+## Crate-Level Error Types
+
+Each crate should define its own error type in `error.rs`:
+
+```rust
+// crates/devmer-state/src/error.rs
+use thiserror::Error;
+
+pub type Result<T> = std::result::Result<T, StateError>;
+
+#[derive(Error, Debug)]
+pub enum StateError {
+    #[error("backend error: {0}")]
+    Backend(#[from] BackendError),
+    
+    #[error("serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
+    
+    #[error("state is locked")]
+    Locked(LockInfo),
+    
+    #[error("state not found for stack: {0}")]
+    NotFound(String),
+    
+    #[error("{0}")]
+    Custom(String),
+}
+```
+
+## Error Context
+
+Always add context to errors:
+
+```rust
+// ✅ Good - provides context
+fs::read_to_string(&path)
+    .with_context(|| format!("failed to read state file: {}", path.display()))?;
+
+// ❌ Bad - loses context
+fs::read_to_string(&path)?;
+```
+
+## Error Conversion
+
+Use `#[from]` for automatic conversion, but be intentional:
+
+```rust
+#[derive(Error, Debug)]
+pub enum ProviderError {
+    // Automatic conversion from AWS SDK errors
+    #[error("AWS API error: {0}")]
+    AwsSdk(#[from] aws_sdk_s3::Error),
+    
+    // Manual conversion for more control
+    #[error("configuration error: {0}")]
+    Config(String),
+}
+
+impl From<ConfigError> for ProviderError {
+    fn from(err: ConfigError) -> Self {
+        ProviderError::Config(err.to_string())
+    }
+}
+```
+
+## User-Facing Errors
+
+For CLI errors, provide helpful messages:
+
+```rust
+#[derive(Error, Debug)]
+pub enum CliError {
+    #[error("Stack '{name}' not found.\n\nAvailable stacks:\n{}", available.join("\n  - "))]
+    StackNotFound {
+        name: String,
+        available: Vec<String>,
+    },
+    
+    #[error("Configuration error: {message}\n\nHint: {hint}")]
+    Config {
+        message: String,
+        hint: String,
+    },
+}
+```
+
+## Never Panic in Libraries
+
+```rust
+// ✅ Good - returns Result
+pub fn parse_urn(s: &str) -> Result<Urn> {
+    let parts: Vec<&str> = s.split("::").collect();
+    if parts.len() != 5 {
+        return Err(ParseError::InvalidUrn(s.to_string()));
+    }
+    // ...
+}
+
+// ❌ Bad - panics on invalid input
+pub fn parse_urn(s: &str) -> Urn {
+    let parts: Vec<&str> = s.split("::").collect();
+    assert!(parts.len() == 5, "invalid URN");
+    // ...
+}
+```
+
+## Recoverable vs Unrecoverable
+
+Use `expect()` only for truly unrecoverable situations:
+
+```rust
+// ✅ OK - programmer error if this fails
+let regex = Regex::new(r"^\d+$").expect("invalid regex pattern");
+
+// ❌ Bad - user input should not panic
+let value = input.parse::<i32>().expect("invalid number");
+```

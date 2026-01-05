@@ -1,0 +1,71 @@
+[package]
+name = "devmer-audit"
+description = "Audit logging and compliance reporting for Devmer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Async runtime
+tokio.workspace = true
+async-trait.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Logging
+tracing.workspace = true
+
+# Time
+chrono.workspace = true
+
+# UUID
+uuid.workspace = true
+
+# Cryptography for hash chaining
+sha2 = "0.10"
+hex = "0.4"
+
+# Compression
+flate2 = "1.0"
+
+# File formats
+parquet = { version = "54.0", optional = true }
+arrow = { version = "54.0", optional = true }
+
+# Cloud integrations (optional)
+aws-sdk-cloudwatchlogs = { version = "1.60", optional = true }
+aws-sdk-s3 = { version = "1.68", optional = true }
+
+# Database (optional)
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "json", "chrono", "uuid"], optional = true }
+
+# Template rendering for reports
+tera = "1.20"
+pulldown-cmark = "0.12"
+
+# IP address handling
+ipnetwork = "0.20"
+
+# Hostname
+hostname = "0.4"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+tempfile = "3.14"
+
+[features]
+default = []
+parquet = ["dep:parquet", "dep:arrow"]
+cloudwatch = ["dep:aws-sdk-cloudwatchlogs"]
+s3 = ["dep:aws-sdk-s3"]
+postgres = ["dep:sqlx"]
+full = ["parquet", "cloudwatch", "s3", "postgres"]

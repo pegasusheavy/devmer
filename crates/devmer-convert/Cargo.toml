@@ -1,0 +1,37 @@
+[package]
+name = "devmer-convert"
+description = "HCL to code conversion for Devmer - convert Terraform/OpenTofu projects to scripting languages"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+
+devmer-core.workspace = true
+
+# HCL parsing
+hcl-rs = "0.18"
+
+# Template engine for code generation
+tera = "1.20"
+
+# File handling
+walkdir = "2.5"
+glob = "0.3"
+
+# String utilities
+convert_case = "0.6"
+indexmap = { version = "2.7", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3.14"
+tokio = { workspace = true, features = ["test-util"] }

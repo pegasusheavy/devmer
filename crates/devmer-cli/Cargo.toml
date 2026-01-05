@@ -1,0 +1,48 @@
+[package]
+name = "devmer-cli"
+description = "Command-line interface for Devmer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "devmer"
+path = "src/main.rs"
+
+[dependencies]
+tokio.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+
+devmer-core.workspace = true
+devmer-config.workspace = true
+devmer-convert.workspace = true
+devmer-di.workspace = true
+devmer-state.workspace = true
+devmer-secrets.workspace = true
+
+# Terminal output
+console = "0.15"
+indicatif = "0.17"
+dialoguer = "0.11"
+colored = "2.1"
+atty = "0.2"
+
+# Config and encryption
+toml = "0.8"
+rand = "0.8"
+base64 = "0.22"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.14"

@@ -1,0 +1,90 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: devmer-marketing-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devmer
+      POSTGRES_PASSWORD: devmer_secret
+      POSTGRES_DB: devmer_marketing
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devmer -d devmer_marketing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - devmer-network
+
+  # Marketing Website
+  marketing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: devmer-marketing
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://devmer:devmer_secret@postgres:5432/devmer_marketing?schema=public
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - devmer-network
+
+  # Prisma Studio (development only)
+  prisma-studio:
+    image: node:22-alpine
+    container_name: devmer-prisma-studio
+    working_dir: /app
+    profiles:
+      - dev
+    command: sh -c "corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install && pnpm db:studio"
+    ports:
+      - "5555:5555"
+    environment:
+      - DATABASE_URL=postgresql://devmer:devmer_secret@postgres:5432/devmer_marketing?schema=public
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - devmer-network
+
+  # Optional: Nginx reverse proxy with SSL (for production)
+  # Uncomment and configure for production use
+  # nginx-proxy:
+  #   image: nginx:alpine
+  #   container_name: devmer-proxy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx-proxy.conf:/etc/nginx/nginx.conf:ro
+  #     - ./certs:/etc/nginx/certs:ro
+  #   depends_on:
+  #     - marketing
+  #   networks:
+  #     - devmer-network
+
+volumes:
+  postgres_data:
+
+networks:
+  devmer-network:
+    driver: bridge

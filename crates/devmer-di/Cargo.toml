@@ -1,0 +1,30 @@
+[package]
+name = "devmer-di"
+description = "Dependency injection framework for Devmer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+shaku.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+devmer-core.workspace = true
+devmer-config.workspace = true
+devmer-providers.workspace = true
+devmer-runtime.workspace = true
+devmer-state.workspace = true
+devmer-secrets.workspace = true
+
+[dev-dependencies]
+mockall.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

@@ -1,0 +1,462 @@
+syntax = "proto3";
+
+package devmer;
+
+option go_package = "github.com/pegasusheavyindustries/devmer/sdk/go/proto";
+
+// ============================================================================
+// Engine Service - Called by language hosts to register resources
+// ============================================================================
+
+service Engine {
+    // Register a new resource
+    rpc RegisterResource(RegisterResourceRequest) returns (RegisterResourceResponse);
+    
+    // Register a component resource (logical grouping)
+    rpc RegisterComponent(RegisterComponentRequest) returns (RegisterComponentResponse);
+    
+    // Register outputs for a component
+    rpc RegisterComponentOutputs(RegisterComponentOutputsRequest) returns (RegisterComponentOutputsResponse);
+    
+    // Get configuration value
+    rpc GetConfig(GetConfigRequest) returns (GetConfigResponse);
+    
+    // Get secret value
+    rpc GetSecret(GetSecretRequest) returns (GetSecretResponse);
+    
+    // Read a resource's current state
+    rpc ReadResource(ReadResourceRequest) returns (ReadResourceResponse);
+    
+    // Invoke a provider function
+    rpc Invoke(InvokeRequest) returns (InvokeResponse);
+    
+    // Log a message
+    rpc Log(LogRequest) returns (LogResponse);
+    
+    // Get root resource URN
+    rpc GetRootResource(GetRootResourceRequest) returns (GetRootResourceResponse);
+    
+    // Get stack reference outputs
+    rpc GetStackReference(GetStackReferenceRequest) returns (GetStackReferenceResponse);
+}
+
+// ============================================================================
+// Language Host Service - Called by engine to execute programs
+// ============================================================================
+
+service LanguageHost {
+    // Get plugin info
+    rpc GetPluginInfo(GetPluginInfoRequest) returns (GetPluginInfoResponse);
+    
+    // Run a program
+    rpc Run(RunRequest) returns (RunResponse);
+    
+    // Get required plugins for a program
+    rpc GetRequiredPlugins(GetRequiredPluginsRequest) returns (GetRequiredPluginsResponse);
+    
+    // Install dependencies
+    rpc InstallDependencies(InstallDependenciesRequest) returns (InstallDependenciesResponse);
+    
+    // Get program dependencies
+    rpc GetProgramDependencies(GetProgramDependenciesRequest) returns (GetProgramDependenciesResponse);
+}
+
+// ============================================================================
+// Provider Service - Resource provider operations
+// ============================================================================
+
+service Provider {
+    // Get provider schema
+    rpc GetSchema(GetSchemaRequest) returns (GetSchemaResponse);
+    
+    // Configure the provider
+    rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+    
+    // Check resource inputs
+    rpc Check(CheckRequest) returns (CheckResponse);
+    
+    // Diff resource state
+    rpc Diff(DiffRequest) returns (DiffResponse);
+    
+    // Create a resource
+    rpc Create(CreateRequest) returns (CreateResponse);
+    
+    // Read a resource
+    rpc Read(ReadRequest) returns (ReadResponse);
+    
+    // Update a resource
+    rpc Update(UpdateRequest) returns (UpdateResponse);
+    
+    // Delete a resource
+    rpc Delete(DeleteRequest) returns (DeleteResponse);
+    
+    // Invoke a function
+    rpc Invoke(ProviderInvokeRequest) returns (ProviderInvokeResponse);
+}
+
+// ============================================================================
+// Common Types
+// ============================================================================
+
+message PropertyValue {
+    oneof value {
+        NullValue null_value = 1;
+        bool bool_value = 2;
+        double number_value = 3;
+        string string_value = 4;
+        bytes asset_value = 5;
+        bytes archive_value = 6;
+        ArrayValue array_value = 7;
+        ObjectValue object_value = 8;
+        string secret_value = 9;      // Encrypted secret
+        string output_value = 10;     // Reference to output
+        string resource_ref = 11;     // Reference to resource
+    }
+}
+
+message NullValue {}
+
+message ArrayValue {
+    repeated PropertyValue values = 1;
+}
+
+message ObjectValue {
+    map<string, PropertyValue> properties = 1;
+}
+
+message ResourceOptions {
+    string parent = 1;
+    string provider = 2;
+    repeated string dependencies = 3;
+    bool protect = 4;
+    repeated string ignore_changes = 5;
+    string delete_before_replace = 6;
+    map<string, string> aliases = 7;
+    string custom_timeouts = 8;
+    repeated string additional_secret_outputs = 9;
+    string import_id = 10;
+    bool retain_on_delete = 11;
+    repeated string replace_on_changes = 12;
+}
+
+// ============================================================================
+// Engine Service Messages
+// ============================================================================
+
+message RegisterResourceRequest {
+    string type = 1;                      // Resource type (e.g., "aws:s3:Bucket")
+    string name = 2;                      // Resource name
+    ObjectValue inputs = 3;               // Input properties
+    ResourceOptions options = 4;          // Resource options
+}
+
+message RegisterResourceResponse {
+    string urn = 1;                       // Assigned URN
+    string id = 2;                        // Provider-assigned ID
+    ObjectValue outputs = 3;              // Output properties
+    bool stable = 4;                      // Whether resource is stable
+}
+
+message RegisterComponentRequest {
+    string type = 1;                      // Component type
+    string name = 2;                      // Component name
+    ResourceOptions options = 3;          // Component options
+}
+
+message RegisterComponentResponse {
+    string urn = 1;                       // Component URN
+}
+
+message RegisterComponentOutputsRequest {
+    string urn = 1;                       // Component URN
+    ObjectValue outputs = 2;              // Component outputs
+}
+
+message RegisterComponentOutputsResponse {}
+
+message GetConfigRequest {
+    string key = 1;                       // Config key
+    string namespace = 2;                 // Optional namespace
+}
+
+message GetConfigResponse {
+    bool found = 1;
+    string value = 2;
+}
+
+message GetSecretRequest {
+    string key = 1;                       // Secret key
+    string namespace = 2;                 // Optional namespace
+}
+
+message GetSecretResponse {
+    bool found = 1;
+    bytes value = 2;                      // Decrypted value
+}
+
+message ReadResourceRequest {
+    string type = 1;                      // Resource type
+    string name = 2;                      // Resource name
+    string id = 3;                        // Resource ID
+    string parent = 4;                    // Parent URN
+    ObjectValue properties = 5;           // Known properties
+}
+
+message ReadResourceResponse {
+    string urn = 1;
+    ObjectValue properties = 2;
+}
+
+message InvokeRequest {
+    string token = 1;                     // Function token (e.g., "aws:ec2/getAmi:getAmi")
+    ObjectValue args = 2;                 // Function arguments
+    string provider = 3;                  // Provider reference
+}
+
+message InvokeResponse {
+    ObjectValue return_value = 1;
+    repeated CheckFailure failures = 2;
+}
+
+message LogRequest {
+    LogSeverity severity = 1;
+    string message = 2;
+    string urn = 3;                       // Optional resource URN
+    int32 stream_id = 4;                  // stdout=1, stderr=2
+    bool ephemeral = 5;
+}
+
+enum LogSeverity {
+    LOG_SEVERITY_UNSPECIFIED = 0;
+    LOG_SEVERITY_DEBUG = 1;
+    LOG_SEVERITY_INFO = 2;
+    LOG_SEVERITY_WARNING = 3;
+    LOG_SEVERITY_ERROR = 4;
+}
+
+message LogResponse {}
+
+message GetRootResourceRequest {}
+
+message GetRootResourceResponse {
+    string urn = 1;
+}
+
+message GetStackReferenceRequest {
+    string name = 1;                      // Stack reference name
+}
+
+message GetStackReferenceResponse {
+    ObjectValue outputs = 1;
+}
+
+// ============================================================================
+// Language Host Messages
+// ============================================================================
+
+message GetPluginInfoRequest {}
+
+message GetPluginInfoResponse {
+    string name = 1;
+    string version = 2;
+}
+
+message RunRequest {
+    string project = 1;                   // Project name
+    string stack = 2;                     // Stack name
+    string pwd = 3;                       // Working directory
+    string program = 4;                   // Program path/entry
+    repeated string args = 5;             // Program arguments
+    map<string, string> config = 6;       // Configuration values
+    bool dry_run = 7;                     // Preview mode
+    int32 parallel = 8;                   // Parallelism
+    string monitor_address = 9;           // Engine address
+    string engine_address = 10;           // Engine address
+    string organization = 11;             // Organization name
+}
+
+message RunResponse {
+    string error = 1;                     // Error message if failed
+    bool bail = 2;                        // Whether to bail out
+}
+
+message GetRequiredPluginsRequest {
+    string project = 1;
+    string pwd = 2;
+    string program = 3;
+}
+
+message GetRequiredPluginsResponse {
+    repeated PluginDependency plugins = 1;
+}
+
+message PluginDependency {
+    string name = 1;
+    string kind = 2;                      // "resource" or "analyzer"
+    string version = 3;
+    string server = 4;                    // Optional download server
+}
+
+message InstallDependenciesRequest {
+    string directory = 1;
+    bool is_terminal = 2;
+}
+
+message InstallDependenciesResponse {
+    // Streaming stdout/stderr via stream
+}
+
+message GetProgramDependenciesRequest {
+    string project = 1;
+    string pwd = 2;
+    string program = 3;
+    bool transitive_dependencies = 4;
+}
+
+message GetProgramDependenciesResponse {
+    repeated DependencyInfo dependencies = 1;
+}
+
+message DependencyInfo {
+    string name = 1;
+    string version = 2;
+}
+
+// ============================================================================
+// Provider Messages
+// ============================================================================
+
+message GetSchemaRequest {
+    int32 version = 1;
+}
+
+message GetSchemaResponse {
+    string schema = 1;                    // JSON schema
+}
+
+message ConfigureRequest {
+    map<string, string> variables = 1;
+    ObjectValue args = 2;
+    bool accept_secrets = 3;
+    bool accept_resources = 4;
+}
+
+message ConfigureResponse {
+    bool accept_secrets = 1;
+    bool accept_resources = 2;
+    bool supports_preview = 3;
+}
+
+message CheckRequest {
+    string urn = 1;
+    ObjectValue olds = 2;                 // Previous inputs
+    ObjectValue news = 3;                 // New inputs
+    bytes random_seed = 4;
+}
+
+message CheckResponse {
+    ObjectValue inputs = 1;               // Validated inputs
+    repeated CheckFailure failures = 2;
+}
+
+message CheckFailure {
+    string property = 1;
+    string reason = 2;
+}
+
+message DiffRequest {
+    string urn = 1;
+    string id = 2;
+    ObjectValue olds = 3;                 // Previous state
+    ObjectValue news = 4;                 // Desired state
+    repeated string ignore_changes = 5;
+}
+
+message DiffResponse {
+    repeated string replaces = 1;         // Properties requiring replacement
+    repeated string stables = 2;          // Properties that won't change
+    bool delete_before_replace = 3;
+    DiffChanges changes = 4;
+    repeated string diffs = 5;            // Changed properties
+    map<string, PropertyDiff> detailed_diff = 6;
+}
+
+enum DiffChanges {
+    DIFF_CHANGES_UNSPECIFIED = 0;
+    DIFF_CHANGES_NONE = 1;
+    DIFF_CHANGES_SOME = 2;
+    DIFF_CHANGES_UNKNOWN = 3;
+}
+
+message PropertyDiff {
+    DiffKind kind = 1;
+    bool input_diff = 2;
+}
+
+enum DiffKind {
+    DIFF_KIND_UNSPECIFIED = 0;
+    DIFF_KIND_ADD = 1;
+    DIFF_KIND_ADD_REPLACE = 2;
+    DIFF_KIND_DELETE = 3;
+    DIFF_KIND_DELETE_REPLACE = 4;
+    DIFF_KIND_UPDATE = 5;
+    DIFF_KIND_UPDATE_REPLACE = 6;
+}
+
+message CreateRequest {
+    string urn = 1;
+    ObjectValue properties = 2;
+    double timeout = 3;
+    bool preview = 4;
+}
+
+message CreateResponse {
+    string id = 1;
+    ObjectValue properties = 2;
+}
+
+message ReadRequest {
+    string urn = 1;
+    string id = 2;
+    ObjectValue inputs = 3;
+    ObjectValue state = 4;
+}
+
+message ReadResponse {
+    string id = 1;
+    ObjectValue inputs = 2;
+    ObjectValue properties = 3;
+}
+
+message UpdateRequest {
+    string urn = 1;
+    string id = 2;
+    ObjectValue olds = 3;
+    ObjectValue news = 4;
+    double timeout = 5;
+    repeated string ignore_changes = 6;
+    bool preview = 7;
+}
+
+message UpdateResponse {
+    ObjectValue properties = 1;
+}
+
+message DeleteRequest {
+    string urn = 1;
+    string id = 2;
+    ObjectValue properties = 3;
+    double timeout = 4;
+}
+
+message DeleteResponse {}
+
+message ProviderInvokeRequest {
+    string token = 1;
+    ObjectValue args = 2;
+}
+
+message ProviderInvokeResponse {
+    ObjectValue return_value = 1;
+    repeated CheckFailure failures = 2;
+}

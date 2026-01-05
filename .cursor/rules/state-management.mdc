@@ -1,0 +1,227 @@
+---
+description: State management patterns and backends
+globs: ["**/devmer-state/**/*.rs", "**/state/**/*.rs"]
+---
+
+# State Management Guidelines
+
+## State Backend Trait
+
+All backends implement this interface:
+
+```rust
+#[async_trait]
+pub trait StateBackend: Send + Sync {
+    /// Get state for a stack
+    async fn get_state(&self, stack: &str) -> Result<Option<StackState>>;
+    
+    /// Save state for a stack
+    async fn save_state(&self, stack: &str, state: &StackState) -> Result<()>;
+    
+    /// Delete state for a stack
+    async fn delete_state(&self, stack: &str) -> Result<()>;
+    
+    /// Acquire a lock on the state
+    async fn lock(&self, stack: &str, info: &LockInfo) -> Result<LockId>;
+    
+    /// Release a lock
+    async fn unlock(&self, stack: &str, lock_id: &LockId) -> Result<()>;
+    
+    /// List all stacks
+    async fn list_stacks(&self) -> Result<Vec<String>>;
+    
+    /// Get state history (for backends that support versioning)
+    async fn get_history(&self, stack: &str, limit: usize) -> Result<Vec<StateVersion>> {
+        Ok(vec![])  // Default: no history support
+    }
+}
+```
+
+## State Format
+
+Use a versioned JSON format:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StackState {
+    /// State format version
+    pub version: u32,
+    
+    /// Stack identifier
+    pub stack: String,
+    
+    /// Project name
+    pub project: String,
+    
+    /// Resources in this stack
+    pub resources: Vec<ResourceState>,
+    
+    /// Pending operations (for crash recovery)
+    pub pending_operations: Vec<PendingOperation>,
+    
+    /// Secrets provider configuration
+    pub secrets_provider: Option<SecretsProviderConfig>,
+    
+    /// Metadata
+    pub metadata: StateMetadata,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceState {
+    /// Unique resource identifier
+    pub urn: String,
+    
+    /// Resource type
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    
+    /// Cloud provider ID
+    pub id: Option<String>,
+    
+    /// Input properties
+    pub inputs: serde_json::Value,
+    
+    /// Output properties
+    pub outputs: serde_json::Value,
+    
+    /// Parent resource URN
+    pub parent: Option<String>,
+    
+    /// Dependencies
+    pub dependencies: Vec<String>,
+    
+    /// Timestamps
+    pub created: DateTime<Utc>,
+    pub modified: DateTime<Utc>,
+}
+```
+
+## Locking
+
+Implement distributed locking for concurrent access:
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LockInfo {
+    pub id: String,
+    pub holder: String,       // Who holds the lock
+    pub operation: String,    // What operation is running
+    pub created: DateTime<Utc>,
+    pub expires: Option<DateTime<Utc>>,
+}
+
+impl StateBackend for S3Backend {
+    async fn lock(&self, stack: &str, info: &LockInfo) -> Result<LockId> {
+        // Use DynamoDB for distributed locking
+        let lock_key = format!("devmer-lock-{}", stack);
+        
+        // Try to acquire lock with conditional write
+        self.dynamodb
+            .put_item()
+            .table_name(&self.lock_table)
+            .item("LockID", AttributeValue::S(lock_key.clone()))
+            .item("Info", AttributeValue::S(serde_json::to_string(info)?))
+            .condition_expression("attribute_not_exists(LockID)")
+            .send()
+            .await
+            .map_err(|e| StateError::LockFailed(e.to_string()))?;
+        
+        Ok(LockId(lock_key))
+    }
+}
+```
+
+## State Encryption
+
+Encrypt sensitive data in state:
+
+```rust
+pub struct EncryptedState {
+    /// Encryption envelope
+    pub envelope: EncryptionEnvelope,
+    
+    /// Encrypted state blob
+    pub ciphertext: Vec<u8>,
+}
+
+impl StateBackend for EncryptedBackend {
+    async fn save_state(&self, stack: &str, state: &StackState) -> Result<()> {
+        // Serialize state
+        let plaintext = serde_json::to_vec(state)?;
+        
+        // Encrypt
+        let encrypted = self.encryptor.encrypt(&plaintext).await?;
+        
+        // Save encrypted state
+        self.inner.save_state(stack, &encrypted).await
+    }
+    
+    async fn get_state(&self, stack: &str) -> Result<Option<StackState>> {
+        // Get encrypted state
+        let encrypted = match self.inner.get_state(stack).await? {
+            Some(e) => e,
+            None => return Ok(None),
+        };
+        
+        // Decrypt
+        let plaintext = self.encryptor.decrypt(&encrypted).await?;
+        
+        // Deserialize
+        let state: StackState = serde_json::from_slice(&plaintext)?;
+        Ok(Some(state))
+    }
+}
+```
+
+## Crash Recovery
+
+Handle interrupted operations:
+
+```rust
+pub async fn recover_state(&self, stack: &str) -> Result<()> {
+    let state = self.get_state(stack).await?.ok_or(StateError::NotFound)?;
+    
+    for pending in &state.pending_operations {
+        match pending.operation_type {
+            OperationType::Create => {
+                // Check if resource was actually created
+                if self.provider.resource_exists(&pending.resource_id).await? {
+                    // Update state to reflect creation
+                    self.mark_operation_complete(stack, pending).await?;
+                } else {
+                    // Remove pending operation
+                    self.remove_pending_operation(stack, pending).await?;
+                }
+            }
+            OperationType::Delete => {
+                // Check if resource still exists
+                if !self.provider.resource_exists(&pending.resource_id).await? {
+                    // Update state to reflect deletion
+                    self.mark_operation_complete(stack, pending).await?;
+                }
+                // If still exists, retry deletion on next apply
+            }
+            // ...
+        }
+    }
+    
+    Ok(())
+}
+```
+
+## State Migration
+
+Support migrating between state versions:
+
+```rust
+pub fn migrate_state(state: serde_json::Value) -> Result<StackState> {
+    let version = state["version"].as_u64().unwrap_or(1);
+    
+    match version {
+        1 => migrate_v1_to_current(state),
+        2 => migrate_v2_to_current(state),
+        CURRENT_VERSION => serde_json::from_value(state).map_err(Into::into),
+        v => Err(StateError::UnsupportedVersion(v)),
+    }
+}
+```

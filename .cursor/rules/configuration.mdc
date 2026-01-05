@@ -1,0 +1,233 @@
+---
+description: Configuration parsing and environment variable handling
+globs: ["**/devmer-config/**/*.rs", "**/config/**/*.rs", "**/*.toml"]
+---
+
+# Configuration Guidelines
+
+## Configuration Structure
+
+```rust
+#[derive(Debug, Clone, Deserialize)]
+pub struct DevmerConfig {
+    pub project: ProjectConfig,
+    
+    #[serde(default)]
+    pub backend: BackendConfig,
+    
+    #[serde(default)]
+    pub secrets: SecretsConfig,
+    
+    #[serde(default)]
+    pub stack: HashMap<String, StackConfig>,
+    
+    #[serde(default)]
+    pub plugins: HashMap<String, String>,
+    
+    #[serde(default)]
+    pub environment: EnvironmentConfig,
+}
+```
+
+## Environment Variable Interpolation
+
+Support multiple interpolation patterns:
+
+```rust
+pub fn interpolate(value: &str, env: &Environment) -> Result<String> {
+    let re = Regex::new(r"\$\{([^}]+)\}").unwrap();
+    
+    let result = re.replace_all(value, |caps: &Captures| {
+        let expr = &caps[1];
+        
+        // ${VAR} - required
+        // ${VAR:-default} - with default
+        // ${VAR:?error} - required with custom error
+        // ${env:VAR} - explicit env prefix
+        // ${file:/path} - read from file
+        // ${secret:name} - from secrets provider
+        
+        parse_interpolation(expr, env)
+            .unwrap_or_else(|e| format!("ERROR: {}", e))
+    });
+    
+    Ok(result.into_owned())
+}
+
+fn parse_interpolation(expr: &str, env: &Environment) -> Result<String> {
+    if let Some(rest) = expr.strip_prefix("env:") {
+        return env.get(rest).ok_or_else(|| ConfigError::MissingEnv(rest.into()));
+    }
+    
+    if let Some(path) = expr.strip_prefix("file:") {
+        return std::fs::read_to_string(path)
+            .map(|s| s.trim().to_string())
+            .map_err(|e| ConfigError::FileRead(path.into(), e));
+    }
+    
+    if let Some(name) = expr.strip_prefix("secret:") {
+        return env.get_secret(name);
+    }
+    
+    // Handle ${VAR:-default} and ${VAR:?error}
+    if let Some((var, default)) = expr.split_once(":-") {
+        return Ok(env.get(var).unwrap_or_else(|| default.to_string()));
+    }
+    
+    if let Some((var, error)) = expr.split_once(":?") {
+        return env.get(var).ok_or_else(|| ConfigError::Custom(error.into()));
+    }
+    
+    // Simple ${VAR}
+    env.get(expr).ok_or_else(|| ConfigError::MissingEnv(expr.into()))
+}
+```
+
+## .env File Loading
+
+```rust
+pub fn load_env_files(stack: &str) -> Result<HashMap<String, String>> {
+    let mut env = HashMap::new();
+    
+    // Load in order (later overrides earlier)
+    let files = [
+        ".env",
+        ".env.local",
+        &format!(".env.{}", stack),
+        &format!(".env.{}.local", stack),
+    ];
+    
+    for file in files {
+        if Path::new(file).exists() {
+            let contents = std::fs::read_to_string(file)?;
+            for line in contents.lines() {
+                if let Some((key, value)) = parse_env_line(line) {
+                    env.insert(key, value);
+                }
+            }
+        }
+    }
+    
+    Ok(env)
+}
+
+fn parse_env_line(line: &str) -> Option<(String, String)> {
+    let line = line.trim();
+    
+    // Skip comments and empty lines
+    if line.is_empty() || line.starts_with('#') {
+        return None;
+    }
+    
+    let (key, value) = line.split_once('=')?;
+    let key = key.trim().to_string();
+    let value = value.trim();
+    
+    // Remove quotes if present
+    let value = if (value.starts_with('"') && value.ends_with('"'))
+        || (value.starts_with('\'') && value.ends_with('\''))
+    {
+        value[1..value.len()-1].to_string()
+    } else {
+        value.to_string()
+    };
+    
+    Some((key, value))
+}
+```
+
+## Configuration Validation
+
+```rust
+use validator::Validate;
+
+#[derive(Debug, Validate, Deserialize)]
+pub struct BackendConfig {
+    #[validate(length(min = 1))]
+    pub backend_type: String,
+    
+    #[validate(url)]
+    pub endpoint: Option<String>,
+    
+    #[validate(range(min = 1, max = 65535))]
+    pub port: Option<u16>,
+}
+
+pub fn validate_config(config: &DevmerConfig) -> Result<()> {
+    config.validate()?;
+    
+    // Custom validations
+    if config.backend.backend_type == "s3" && config.backend.bucket.is_none() {
+        return Err(ConfigError::MissingField("backend.bucket".into()));
+    }
+    
+    Ok(())
+}
+```
+
+## Sensitive Value Handling
+
+Never log or expose sensitive configuration:
+
+```rust
+#[derive(Debug, Deserialize)]
+pub struct DatabaseConfig {
+    pub host: String,
+    pub port: u16,
+    pub database: String,
+    pub username: String,
+    
+    // Use _env suffix pattern - value is env var name, not actual secret
+    #[serde(default)]
+    pub password_env: Option<String>,
+}
+
+impl DatabaseConfig {
+    pub fn connection_string(&self) -> Result<Secret<String>> {
+        let password = match &self.password_env {
+            Some(var) => std::env::var(var)
+                .map_err(|_| ConfigError::MissingEnv(var.clone()))?,
+            None => return Err(ConfigError::MissingField("password_env".into())),
+        };
+        
+        Ok(Secret::new(format!(
+            "postgres://{}:{}@{}:{}/{}",
+            self.username, password, self.host, self.port, self.database
+        )))
+    }
+}
+```
+
+## Configuration Precedence
+
+```rust
+pub fn load_config(cli_args: &CliArgs) -> Result<DevmerConfig> {
+    let mut builder = Config::builder();
+    
+    // 1. Default values
+    builder = builder.add_source(Config::try_from(&DevmerConfig::default())?);
+    
+    // 2. Config file
+    let config_path = &cli_args.config;
+    if config_path.exists() {
+        builder = builder.add_source(File::from(config_path.as_ref()));
+    }
+    
+    // 3. Environment variables (DEVMER_ prefix)
+    builder = builder.add_source(
+        Environment::with_prefix("DEVMER")
+            .separator("__")
+            .try_parsing(true)
+    );
+    
+    // 4. CLI overrides
+    for (key, value) in &cli_args.config_overrides {
+        builder = builder.set_override(key, value.clone())?;
+    }
+    
+    let config: DevmerConfig = builder.build()?.try_deserialize()?;
+    validate_config(&config)?;
+    
+    Ok(config)
+}
+```

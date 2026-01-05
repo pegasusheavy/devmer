@@ -1,0 +1,109 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/devmer-audit",
+    "crates/devmer-cli",
+    "crates/devmer-cloudmer",
+    "crates/devmer-concurrency",
+    "crates/devmer-convert",
+    "crates/devmer-core",
+    "crates/devmer-config",
+    "crates/devmer-di",
+    "crates/devmer-org",
+    "crates/devmer-providers",
+    "crates/devmer-runtime",
+    "crates/devmer-state",
+    "crates/devmer-secrets",
+    "crates/devmer-rpc",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/PegasusHeavyIndustries/devmer"
+authors = ["Pegasus Heavy Industries"]
+rust-version = "1.85"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.44", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Logging & diagnostics
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Graph data structures
+petgraph = "0.7"
+
+# Configuration
+toml = "0.8"
+config = "0.15"
+dotenvy = "0.15"
+
+# Dependency injection
+shaku = "0.6"
+
+# gRPC
+tonic = "0.12"
+prost = "0.13"
+
+# UUID
+uuid = { version = "1.11", features = ["v4", "serde"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Encryption & secrets
+secrecy = { version = "0.10", features = ["serde"] }
+zeroize = { version = "1.8", features = ["derive"] }
+argon2 = "0.5"
+aes-gcm = "0.10"
+rand = "0.8"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+
+# URL handling
+url = "2.5"
+
+# Testing
+mockall = "0.13"
+wiremock = "0.6"
+
+# Benchmarking
+criterion = { version = "0.8.0", features = ["html_reports"] }
+
+# Workspace crates
+devmer-audit = { path = "crates/devmer-audit" }
+devmer-cloudmer = { path = "crates/devmer-cloudmer" }
+devmer-convert = { path = "crates/devmer-convert" }
+devmer-core = { path = "crates/devmer-core" }
+devmer-config = { path = "crates/devmer-config" }
+devmer-di = { path = "crates/devmer-di" }
+devmer-org = { path = "crates/devmer-org" }
+devmer-providers = { path = "crates/devmer-providers" }
+devmer-runtime = { path = "crates/devmer-runtime" }
+devmer-state = { path = "crates/devmer-state" }
+devmer-secrets = { path = "crates/devmer-secrets" }
+devmer-rpc = { path = "crates/devmer-rpc" }
+devmer-concurrency = { path = "crates/devmer-concurrency" }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
