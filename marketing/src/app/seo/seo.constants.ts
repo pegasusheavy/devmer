@@ -83,11 +83,11 @@ export const PAGE_META: Record<string, PageMeta> = {
   },
   
   about: {
-    title: 'About Devmer - Built by Pegasus Heavy Industries',
-    description: 'Devmer is built by Pegasus Heavy Industries. Learn about our mission to make Infrastructure as Code accessible, self-hosted, and developer-friendly.',
+    title: 'About Devmer - Built by Joseph R. Quinn',
+    description: 'Devmer is built by Joseph R. Quinn. Learn about our mission to make Infrastructure as Code accessible, self-hosted, and developer-friendly.',
     keywords: [
       'about Devmer',
-      'Pegasus Heavy Industries',
+      'Joseph R. Quinn',
       'IaC company'
     ]
   },

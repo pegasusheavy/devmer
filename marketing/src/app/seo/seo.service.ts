@@ -219,7 +219,7 @@ export class SeoService {
       },
       publisher: {
         '@type': 'Organization',
-        name: 'Pegasus Heavy Industries',
+        name: 'Joseph R. Quinn',
         logo: {
           '@type': 'ImageObject',
           url: `${this.baseUrl}/assets/logo.png`
@@ -294,7 +294,7 @@ export class SeoService {
       description: product.description,
       brand: {
         '@type': 'Organization',
-        name: 'Pegasus Heavy Industries'
+        name: 'Joseph R. Quinn'
       },
       offers: {
         '@type': 'Offer',
@@ -329,7 +329,7 @@ export class SeoService {
       embedUrl: video.embedUrl,
       publisher: {
         '@type': 'Organization',
-        name: 'Pegasus Heavy Industries',
+        name: 'Joseph R. Quinn',
         logo: {
           '@type': 'ImageObject',
           url: `${this.baseUrl}/assets/logo.png`

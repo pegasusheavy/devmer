@@ -331,7 +331,7 @@ devmer up
 
 - Website: https://devmer.io
 - Documentation: https://devmer.io/docs
-- GitHub: https://github.com/PegasusHeavyIndustries/devmer
+- GitHub: https://github.com/quinnjr/devmer
 - Discord: https://discord.gg/devmer
 
 ## Contact

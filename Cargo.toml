@@ -21,8 +21,8 @@ members = [
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
-repository = "https://github.com/PegasusHeavyIndustries/devmer"
-authors = ["Pegasus Heavy Industries"]
+repository = "https://github.com/quinnjr/devmer"
+authors = ["Joseph R. Quinn"]
 rust-version = "1.85"
 
 [workspace.dependencies]

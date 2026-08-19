@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package devmer;
 
-option go_package = "github.com/pegasusheavyindustries/devmer/sdk/go/proto";
+option go_package = "github.com/quinnjr/devmer/sdk/go/proto";
 
 // ============================================================================
 // Engine Service - Called by language hosts to register resources

@@ -121,7 +121,7 @@ export class ArticleStructuredDataComponent implements OnChanges, OnDestroy {
       },
       publisher: {
         '@type': 'Organization',
-        name: 'Pegasus Heavy Industries',
+        name: 'Joseph R. Quinn',
         logo: {
           '@type': 'ImageObject',
           url: 'https://devmer.io/assets/logo.png'
