@@ -12,7 +12,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 /// Devmer - Infrastructure as Code
 #[derive(Parser)]
 #[command(name = "devmer")]
-#[command(author = "Pegasus Heavy Industries")]
+#[command(author = "Joseph R. Quinn")]
 #[command(version)]
 #[command(about = "A self-hosted Infrastructure as Code tool", long_about = None)]
 struct Cli {
